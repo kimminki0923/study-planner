@@ -38,7 +38,7 @@ function App() {
 
     switch (currentView) {
       case 'dashboard':
-        return <Dashboard user={user} onNavigate={setCurrentView} />;
+        return <Dashboard user={initialStudyData.user} onNavigate={setCurrentView} />;
       case 'calendar':
         return <CalendarView tasks={tasks} />;
       case 'tracker':
@@ -49,7 +49,7 @@ function App() {
           onToggleTask={handleToggleTask}
         />;
       default:
-        return <Dashboard user={user} onNavigate={setCurrentView} />;
+        return <Dashboard user={initialStudyData.user} onNavigate={setCurrentView} />;
     }
   };
 
