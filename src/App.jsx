@@ -122,19 +122,6 @@ function App() {
 
   return (
     <div className="min-h-screen pb-20 md:pb-0">
-      {/* Migration Banner */}
-      {migrationUid && (
-        <div className="bg-accent-primary/20 p-4 text-center backdrop-blur-md border-b border-accent-primary/30">
-          <p className="text-sm mb-2">💡 이전 익명 계정의 데이터가 발견되었습니다.</p>
-          <button
-            onClick={handleMigration}
-            className="btn bg-accent-primary text-white text-sm px-4 py-2 hover:bg-accent-primary/80"
-          >
-            데이터 복구하기
-          </button>
-        </div>
-      )}
-
       {/* Navigation */}
       <nav className="nav">
         <div className="container flex justify-around items-center">

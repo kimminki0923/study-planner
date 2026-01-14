@@ -101,15 +101,36 @@ export default function StudyInput({ subjects, onSave, getDataForDate }) {
                         >
                             <span className="font-medium text-sm">{subject.name}</span>
                             <div className="flex items-center gap-2">
-                                <input
-                                    type="number"
-                                    className="input input-number"
-                                    value={hours[subject.id] || ''}
-                                    onChange={(e) => handleChange(subject.id, e.target.value)}
-                                    placeholder="0"
-                                    min="0"
-                                />
-                                <span className="text-text-muted text-xs">분</span>
+                                <div className="flex items-center bg-accent-primary/5 rounded-md px-2">
+                                    <input
+                                        type="number"
+                                        className="w-12 bg-transparent border-none text-right font-bold focus:ring-0 p-1"
+                                        value={Math.floor((hours[subject.id] || 0) / 60) || ''}
+                                        onChange={(e) => {
+                                            const h = Math.max(0, parseInt(e.target.value) || 0);
+                                            const m = (hours[subject.id] || 0) % 60;
+                                            setHours(prev => ({ ...prev, [subject.id]: h * 60 + m }));
+                                        }}
+                                        placeholder="0"
+                                        min="0"
+                                    />
+                                    <span className="text-text-muted text-xs pr-1">시간</span>
+                                </div>
+                                <div className="flex items-center bg-accent-primary/5 rounded-md px-2">
+                                    <input
+                                        type="number"
+                                        className="w-12 bg-transparent border-none text-right font-bold focus:ring-0 p-1"
+                                        value={((hours[subject.id] || 0) % 60) || ''}
+                                        onChange={(e) => {
+                                            const m = Math.max(0, parseInt(e.target.value) || 0);
+                                            const h = Math.floor((hours[subject.id] || 0) / 60);
+                                            setHours(prev => ({ ...prev, [subject.id]: h * 60 + m }));
+                                        }}
+                                        placeholder="0"
+                                        min="0"
+                                    />
+                                    <span className="text-text-muted text-xs pr-1">분</span>
+                                </div>
                             </div>
                         </div>
                     ))}
