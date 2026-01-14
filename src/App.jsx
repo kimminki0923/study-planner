@@ -28,12 +28,8 @@ function App() {
     getTodayTotal
   } = useFirebase();
 
-  // Debug: log every render
-  console.log('App render - authLoading:', authLoading, 'user:', user ? user.email : 'null');
-
   // Show loading while checking auth state
   if (authLoading) {
-    console.log('Showing loading spinner');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader className="animate-spin text-accent-primary" size={32} />
@@ -41,13 +37,15 @@ function App() {
     );
   }
 
-  // Show login screen if not logged in
-  if (!user) {
-    console.log('Showing login screen');
+  // Show login screen if not logged in or anonymous
+  if (!user || user.isAnonymous) {
+    // Save anonymous UID if present for migration
+    if (user?.isAnonymous) {
+      console.log('Found anonymous user:', user.uid);
+      localStorage.setItem('migration_uid', user.uid);
+    }
     return <LoginScreen onLogin={loginWithGoogle} />;
   }
-
-  console.log('Showing main app for user:', user.email);
 
   const renderView = () => {
     if (loading) {
