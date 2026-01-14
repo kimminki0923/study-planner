@@ -25,7 +25,6 @@ export function useFirebase() {
     useEffect(() => {
         let timeoutId;
 
-        // Fallback timeout - if auth doesn't respond in 3 seconds, show login
         timeoutId = setTimeout(() => {
             console.log('Auth timeout - showing login screen');
             setAuthLoading(false);
@@ -52,54 +51,47 @@ export function useFirebase() {
     }, []);
 
     // Real-time Data Sync - User specific
+    // Fixed: Using proper document paths (even number of segments)
     useEffect(() => {
         if (!user) return;
 
         setLoading(true);
-        const userPath = `users/${user.uid}`;
 
-        const unsubSessions = onSnapshot(doc(db, userPath, 'sessions'), (docSnap) => {
+        // Path: users/{uid} - this is a document
+        const userDocRef = doc(db, 'users', user.uid);
+
+        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                const sessionArray = Object.entries(data).map(([date, studyData]) => ({
-                    date,
-                    data: studyData
-                }));
-                setSessions(sessionArray);
+
+                // Parse sessions from stored object
+                if (data.sessions) {
+                    const sessionArray = Object.entries(data.sessions).map(([date, studyData]) => ({
+                        date,
+                        data: studyData
+                    }));
+                    setSessions(sessionArray);
+                } else {
+                    setSessions([]);
+                }
+
+                // Parse events
+                setEvents(data.events || {});
+
+                // Parse memo
+                setMemo(data.memo || '');
             } else {
                 setSessions([]);
-            }
-            setLoading(false);
-        }, (error) => {
-            console.error('Sessions error:', error);
-            setLoading(false);
-        });
-
-        const unsubEvents = onSnapshot(doc(db, userPath, 'events'), (docSnap) => {
-            if (docSnap.exists()) {
-                setEvents(docSnap.data() || {});
-            } else {
                 setEvents({});
-            }
-        }, (error) => {
-            console.error('Events error:', error);
-        });
-
-        const unsubMemo = onSnapshot(doc(db, userPath, 'memo'), (docSnap) => {
-            if (docSnap.exists()) {
-                setMemo(docSnap.data().content || '');
-            } else {
                 setMemo('');
             }
+            setLoading(false);
         }, (error) => {
-            console.error('Memo error:', error);
+            console.error('Data error:', error);
+            setLoading(false);
         });
 
-        return () => {
-            unsubSessions();
-            unsubEvents();
-            unsubMemo();
-        };
+        return () => unsubscribe();
     }, [user]);
 
     // Google Login
@@ -121,31 +113,42 @@ export function useFirebase() {
         }
     };
 
-    // Save functions
+    // Save study record - stores in users/{uid} document
     const saveStudyRecord = async (date, data) => {
         if (!user) return;
+
         const existingSessions = {};
         sessions.forEach(s => {
             existingSessions[s.date] = s.data;
         });
 
-        await setDoc(doc(db, `users/${user.uid}`, 'sessions'), {
-            ...existingSessions,
-            [date]: data
-        });
-    };
-
-    const saveEvent = async (dateKey, content) => {
-        if (!user) return;
-        await setDoc(doc(db, `users/${user.uid}`, 'events'), {
-            ...events,
-            [dateKey]: content
+        await setDoc(doc(db, 'users', user.uid), {
+            sessions: {
+                ...existingSessions,
+                [date]: data
+            },
+            events,
+            memo
         }, { merge: true });
     };
 
+    // Save calendar event
+    const saveEvent = async (dateKey, content) => {
+        if (!user) return;
+        await setDoc(doc(db, 'users', user.uid), {
+            events: {
+                ...events,
+                [dateKey]: content
+            }
+        }, { merge: true });
+    };
+
+    // Save memo
     const saveMemo = async (content) => {
         if (!user) return;
-        await setDoc(doc(db, `users/${user.uid}`, 'memo'), { content });
+        await setDoc(doc(db, 'users', user.uid), {
+            memo: content
+        }, { merge: true });
     };
 
     const getDataForDate = (date) => {
