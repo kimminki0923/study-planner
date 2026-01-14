@@ -5,20 +5,20 @@ import {
     onSnapshot,
     doc,
     setDoc,
-    updateDoc,
-    addDoc
+    addDoc,
+    orderBy
 } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { db, auth } from '../services/firebase';
-import { initialStudyData } from '../data/initialData';
 
 export function useFirebase() {
     const [user, setUser] = useState(null);
-    const [tasks, setTasks] = useState([]);
     const [sessions, setSessions] = useState([]);
+    const [events, setEvents] = useState({});
+    const [memo, setMemo] = useState('');
     const [loading, setLoading] = useState(true);
 
-    // 1. Auth & Initial Load
+    // Auth
     useEffect(() => {
         const unsubscribeAuth = auth.onAuthStateChanged(async (u) => {
             if (u) {
@@ -30,74 +30,81 @@ export function useFirebase() {
         return () => unsubscribeAuth();
     }, []);
 
-    // 2. Real-time Data Sync (Only after login)
+    // Real-time Data Sync
     useEffect(() => {
         if (!user) return;
 
-        // Load Tasks
-        const qTasks = query(collection(db, 'tasks'));
-        const unsubTasks = onSnapshot(qTasks, (snapshot) => {
-            if (snapshot.empty) {
-                // Initialize DB with local data if empty
-                initializeTasks();
-            } else {
-                const remoteTasks = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                setTasks(remoteTasks);
-            }
-            setLoading(false);
-        });
-
-        // Load Sessions
-        const qSessions = query(collection(db, 'sessions'));
+        // Load Sessions (study records)
+        const qSessions = query(collection(db, 'sessions'), orderBy('date', 'desc'));
         const unsubSessions = onSnapshot(qSessions, (snapshot) => {
             const remoteSessions = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
             setSessions(remoteSessions);
+            setLoading(false);
+        });
+
+        // Load Calendar Events
+        const unsubEvents = onSnapshot(doc(db, 'data', 'events'), (docSnap) => {
+            if (docSnap.exists()) {
+                setEvents(docSnap.data() || {});
+            }
+        });
+
+        // Load Memo
+        const unsubMemo = onSnapshot(doc(db, 'data', 'memo'), (docSnap) => {
+            if (docSnap.exists()) {
+                setMemo(docSnap.data().content || '');
+            }
         });
 
         return () => {
-            unsubTasks();
             unsubSessions();
+            unsubEvents();
+            unsubMemo();
         };
     }, [user]);
 
-    const initializeTasks = async () => {
-        // Flatten initialData logic
-        console.log("Initializing Database with default tasks...");
-        initialStudyData.subjects.forEach(sub => {
-            sub.tasks.forEach(async (task) => {
-                // Use custom ID to prevent duplicates easily or let Firestore auto-gen?
-                // Let's use auto-gen for simplicity but store original ID for reference if needed
-                // Actually, we want persistence. Let's rely on mapping.
-                await addDoc(collection(db, 'tasks'), {
-                    ...task,
-                    subjectId: sub.id,
-                    color: sub.color,
-                    createdAt: new Date()
-                });
-            });
-        });
-    };
-
-    const toggleTask = async (taskId, currentStatus) => {
-        const taskRef = doc(db, 'tasks', taskId);
-        await updateDoc(taskRef, {
-            status: currentStatus === 'completed' ? 'todo' : 'completed'
-        });
-    };
-
-    const saveSession = async (sessionData) => {
+    const saveStudyRecord = async (data) => {
+        const today = new Date().toISOString().split('T')[0];
         await addDoc(collection(db, 'sessions'), {
-            ...sessionData,
+            date: today,
+            data: data,
             timestamp: new Date()
         });
     };
 
+    const saveEvent = async (dateKey, content) => {
+        await setDoc(doc(db, 'data', 'events'), {
+            ...events,
+            [dateKey]: content
+        }, { merge: true });
+    };
+
+    const saveMemo = async (content) => {
+        await setDoc(doc(db, 'data', 'memo'), { content });
+    };
+
+    // Get today's study data
+    const getTodayData = () => {
+        const today = new Date().toISOString().split('T')[0];
+        const todaySession = sessions.find(s => s.date === today);
+        return todaySession?.data || {};
+    };
+
+    const getTodayTotal = () => {
+        const todayData = getTodayData();
+        return Object.values(todayData).reduce((a, b) => a + b, 0);
+    };
+
     return {
         user,
-        tasks,
         sessions,
+        events,
+        memo,
         loading,
-        toggleTask,
-        saveSession
+        saveStudyRecord,
+        saveEvent,
+        saveMemo,
+        getTodayData,
+        getTodayTotal
     };
 }
