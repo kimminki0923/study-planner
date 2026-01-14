@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-    collection,
     doc,
     setDoc,
     onSnapshot
@@ -22,20 +21,34 @@ export function useFirebase() {
     const [loading, setLoading] = useState(true);
     const [authLoading, setAuthLoading] = useState(true);
 
-    // Auth state listener
+    // Auth state listener with timeout fallback
     useEffect(() => {
+        let timeoutId;
+
+        // Fallback timeout - if auth doesn't respond in 3 seconds, show login
+        timeoutId = setTimeout(() => {
+            console.log('Auth timeout - showing login screen');
+            setAuthLoading(false);
+            setLoading(false);
+        }, 3000);
+
         const unsubscribeAuth = auth.onAuthStateChanged((u) => {
+            console.log('Auth state changed:', u ? u.email : 'null');
+            clearTimeout(timeoutId);
             setUser(u);
             setAuthLoading(false);
             if (!u) {
-                // Clear data when logged out
                 setSessions([]);
                 setEvents({});
                 setMemo('');
                 setLoading(false);
             }
         });
-        return () => unsubscribeAuth();
+
+        return () => {
+            clearTimeout(timeoutId);
+            unsubscribeAuth();
+        };
     }, []);
 
     // Real-time Data Sync - User specific
@@ -45,7 +58,6 @@ export function useFirebase() {
         setLoading(true);
         const userPath = `users/${user.uid}`;
 
-        // Load Sessions (study records)
         const unsubSessions = onSnapshot(doc(db, userPath, 'sessions'), (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
@@ -58,24 +70,29 @@ export function useFirebase() {
                 setSessions([]);
             }
             setLoading(false);
+        }, (error) => {
+            console.error('Sessions error:', error);
+            setLoading(false);
         });
 
-        // Load Calendar Events
         const unsubEvents = onSnapshot(doc(db, userPath, 'events'), (docSnap) => {
             if (docSnap.exists()) {
                 setEvents(docSnap.data() || {});
             } else {
                 setEvents({});
             }
+        }, (error) => {
+            console.error('Events error:', error);
         });
 
-        // Load Memo
         const unsubMemo = onSnapshot(doc(db, userPath, 'memo'), (docSnap) => {
             if (docSnap.exists()) {
                 setMemo(docSnap.data().content || '');
             } else {
                 setMemo('');
             }
+        }, (error) => {
+            console.error('Memo error:', error);
         });
 
         return () => {
@@ -104,7 +121,7 @@ export function useFirebase() {
         }
     };
 
-    // Save functions - now user specific
+    // Save functions
     const saveStudyRecord = async (date, data) => {
         if (!user) return;
         const existingSessions = {};
