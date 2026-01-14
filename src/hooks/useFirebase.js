@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import {
+    collection,
     doc,
     setDoc,
+    getDoc,
     onSnapshot
 } from 'firebase/firestore';
 import {
@@ -162,6 +164,32 @@ export function useFirebase() {
         return Object.values(todayData).reduce((a, b) => a + (Number(b) || 0), 0);
     };
 
+    // Data Migration
+    const migrateData = async (oldUid) => {
+        if (!user) return false;
+        try {
+            setLoading(true);
+            const oldDocRef = doc(db, 'users', oldUid);
+            const oldDocSnap = await getDoc(oldDocRef);
+
+            if (oldDocSnap.exists()) {
+                const oldData = oldDocSnap.data();
+                // Merge old data into new user's document
+                await setDoc(doc(db, 'users', user.uid), oldData, { merge: true });
+                console.log('Migration successful');
+                return true;
+            } else {
+                console.log('No old data found');
+                return false;
+            }
+        } catch (error) {
+            console.error('Migration error:', error);
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return {
         user,
         sessions,
@@ -175,6 +203,7 @@ export function useFirebase() {
         saveEvent,
         saveMemo,
         getDataForDate,
-        getTodayTotal
+        getTodayTotal,
+        migrateData
     };
 }

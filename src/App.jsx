@@ -25,8 +25,25 @@ function App() {
     saveEvent,
     saveMemo,
     getDataForDate,
-    getTodayTotal
+    getTodayTotal,
+    migrateData
   } = useFirebase();
+
+  const [migrationUid, setMigrationUid] = useState(localStorage.getItem('migration_uid'));
+
+  const handleMigration = async () => {
+    if (window.confirm('이전 익명 계정의 데이터를 현재 구글 계정으로 복구하시겠습니까?')) {
+      const success = await migrateData(migrationUid);
+      if (success) {
+        alert('데이터 복구가 완료되었습니다!');
+        localStorage.removeItem('migration_uid');
+        setMigrationUid(null);
+        window.location.reload();
+      } else {
+        alert('이전 데이터를 찾을 수 없습니다.');
+      }
+    }
+  };
 
   // Show loading while checking auth state
   if (authLoading) {
@@ -105,6 +122,19 @@ function App() {
 
   return (
     <div className="min-h-screen pb-20 md:pb-0">
+      {/* Migration Banner */}
+      {migrationUid && (
+        <div className="bg-accent-primary/20 p-4 text-center backdrop-blur-md border-b border-accent-primary/30">
+          <p className="text-sm mb-2">💡 이전 익명 계정의 데이터가 발견되었습니다.</p>
+          <button
+            onClick={handleMigration}
+            className="btn bg-accent-primary text-white text-sm px-4 py-2 hover:bg-accent-primary/80"
+          >
+            데이터 복구하기
+          </button>
+        </div>
+      )}
+
       {/* Navigation */}
       <nav className="nav">
         <div className="container flex justify-around items-center">
