@@ -5,7 +5,6 @@ import {
     onSnapshot,
     doc,
     setDoc,
-    addDoc,
     orderBy
 } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
@@ -34,11 +33,17 @@ export function useFirebase() {
     useEffect(() => {
         if (!user) return;
 
-        // Load Sessions (study records)
-        const qSessions = query(collection(db, 'sessions'), orderBy('date', 'desc'));
-        const unsubSessions = onSnapshot(qSessions, (snapshot) => {
-            const remoteSessions = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-            setSessions(remoteSessions);
+        // Load Sessions (study records) - stored by date
+        const unsubSessions = onSnapshot(doc(db, 'data', 'sessions'), (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                // Convert object to array format
+                const sessionArray = Object.entries(data).map(([date, studyData]) => ({
+                    date,
+                    data: studyData
+                }));
+                setSessions(sessionArray);
+            }
             setLoading(false);
         });
 
@@ -63,12 +68,16 @@ export function useFirebase() {
         };
     }, [user]);
 
-    const saveStudyRecord = async (data) => {
-        const today = new Date().toISOString().split('T')[0];
-        await addDoc(collection(db, 'sessions'), {
-            date: today,
-            data: data,
-            timestamp: new Date()
+    const saveStudyRecord = async (date, data) => {
+        // Get existing sessions and merge
+        const existingSessions = {};
+        sessions.forEach(s => {
+            existingSessions[s.date] = s.data;
+        });
+
+        await setDoc(doc(db, 'data', 'sessions'), {
+            ...existingSessions,
+            [date]: data
         });
     };
 
@@ -83,15 +92,15 @@ export function useFirebase() {
         await setDoc(doc(db, 'data', 'memo'), { content });
     };
 
-    // Get today's study data
-    const getTodayData = () => {
-        const today = new Date().toISOString().split('T')[0];
-        const todaySession = sessions.find(s => s.date === today);
-        return todaySession?.data || {};
+    // Get data for a specific date
+    const getDataForDate = (date) => {
+        const session = sessions.find(s => s.date === date);
+        return session?.data || {};
     };
 
     const getTodayTotal = () => {
-        const todayData = getTodayData();
+        const today = new Date().toISOString().split('T')[0];
+        const todayData = getDataForDate(today);
         return Object.values(todayData).reduce((a, b) => a + b, 0);
     };
 
@@ -104,7 +113,7 @@ export function useFirebase() {
         saveStudyRecord,
         saveEvent,
         saveMemo,
-        getTodayData,
+        getDataForDate,
         getTodayTotal
     };
 }

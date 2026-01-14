@@ -19,7 +19,7 @@ function App() {
     saveStudyRecord,
     saveEvent,
     saveMemo,
-    getTodayData,
+    getDataForDate,
     getTodayTotal
   } = useFirebase();
 
@@ -39,6 +39,7 @@ function App() {
           <Dashboard
             user={initialStudyData.user}
             subjects={initialStudyData.subjects}
+            sessions={sessions}
             todayTotal={getTodayTotal()}
             onNavigate={setCurrentView}
           />
@@ -54,7 +55,7 @@ function App() {
         return (
           <StudyInput
             subjects={initialStudyData.subjects}
-            todayData={getTodayData()}
+            getDataForDate={getDataForDate}
             onSave={saveStudyRecord}
           />
         );
