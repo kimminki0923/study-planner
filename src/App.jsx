@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+// Version: 2.0.1 - Google Login with user-specific data
 import { Home, Calendar, Edit3, BarChart2, FileText, Loader, LogOut } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/CalendarView';
