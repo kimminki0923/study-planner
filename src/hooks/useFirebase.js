@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import {
     collection,
-    query,
-    onSnapshot,
     doc,
     setDoc,
-    orderBy
+    onSnapshot
 } from 'firebase/firestore';
-import { signInAnonymously } from 'firebase/auth';
+import {
+    signInWithPopup,
+    GoogleAuthProvider,
+    signOut
+} from 'firebase/auth';
 import { db, auth } from '../services/firebase';
+
+const googleProvider = new GoogleAuthProvider();
 
 export function useFirebase() {
     const [user, setUser] = useState(null);
@@ -16,48 +20,61 @@ export function useFirebase() {
     const [events, setEvents] = useState({});
     const [memo, setMemo] = useState('');
     const [loading, setLoading] = useState(true);
+    const [authLoading, setAuthLoading] = useState(true);
 
-    // Auth
+    // Auth state listener
     useEffect(() => {
-        const unsubscribeAuth = auth.onAuthStateChanged(async (u) => {
-            if (u) {
-                setUser(u);
-            } else {
-                await signInAnonymously(auth);
+        const unsubscribeAuth = auth.onAuthStateChanged((u) => {
+            setUser(u);
+            setAuthLoading(false);
+            if (!u) {
+                // Clear data when logged out
+                setSessions([]);
+                setEvents({});
+                setMemo('');
+                setLoading(false);
             }
         });
         return () => unsubscribeAuth();
     }, []);
 
-    // Real-time Data Sync
+    // Real-time Data Sync - User specific
     useEffect(() => {
         if (!user) return;
 
-        // Load Sessions (study records) - stored by date
-        const unsubSessions = onSnapshot(doc(db, 'data', 'sessions'), (docSnap) => {
+        setLoading(true);
+        const userPath = `users/${user.uid}`;
+
+        // Load Sessions (study records)
+        const unsubSessions = onSnapshot(doc(db, userPath, 'sessions'), (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                // Convert object to array format
                 const sessionArray = Object.entries(data).map(([date, studyData]) => ({
                     date,
                     data: studyData
                 }));
                 setSessions(sessionArray);
+            } else {
+                setSessions([]);
             }
             setLoading(false);
         });
 
         // Load Calendar Events
-        const unsubEvents = onSnapshot(doc(db, 'data', 'events'), (docSnap) => {
+        const unsubEvents = onSnapshot(doc(db, userPath, 'events'), (docSnap) => {
             if (docSnap.exists()) {
                 setEvents(docSnap.data() || {});
+            } else {
+                setEvents({});
             }
         });
 
         // Load Memo
-        const unsubMemo = onSnapshot(doc(db, 'data', 'memo'), (docSnap) => {
+        const unsubMemo = onSnapshot(doc(db, userPath, 'memo'), (docSnap) => {
             if (docSnap.exists()) {
                 setMemo(docSnap.data().content || '');
+            } else {
+                setMemo('');
             }
         });
 
@@ -68,31 +85,52 @@ export function useFirebase() {
         };
     }, [user]);
 
+    // Google Login
+    const loginWithGoogle = async () => {
+        try {
+            await signInWithPopup(auth, googleProvider);
+        } catch (error) {
+            console.error('Login error:', error);
+            alert('로그인 실패: ' + error.message);
+        }
+    };
+
+    // Logout
+    const logout = async () => {
+        try {
+            await signOut(auth);
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    };
+
+    // Save functions - now user specific
     const saveStudyRecord = async (date, data) => {
-        // Get existing sessions and merge
+        if (!user) return;
         const existingSessions = {};
         sessions.forEach(s => {
             existingSessions[s.date] = s.data;
         });
 
-        await setDoc(doc(db, 'data', 'sessions'), {
+        await setDoc(doc(db, `users/${user.uid}`, 'sessions'), {
             ...existingSessions,
             [date]: data
         });
     };
 
     const saveEvent = async (dateKey, content) => {
-        await setDoc(doc(db, 'data', 'events'), {
+        if (!user) return;
+        await setDoc(doc(db, `users/${user.uid}`, 'events'), {
             ...events,
             [dateKey]: content
         }, { merge: true });
     };
 
     const saveMemo = async (content) => {
-        await setDoc(doc(db, 'data', 'memo'), { content });
+        if (!user) return;
+        await setDoc(doc(db, `users/${user.uid}`, 'memo'), { content });
     };
 
-    // Get data for a specific date
     const getDataForDate = (date) => {
         const session = sessions.find(s => s.date === date);
         return session?.data || {};
@@ -101,7 +139,7 @@ export function useFirebase() {
     const getTodayTotal = () => {
         const today = new Date().toISOString().split('T')[0];
         const todayData = getDataForDate(today);
-        return Object.values(todayData).reduce((a, b) => a + b, 0);
+        return Object.values(todayData).reduce((a, b) => a + (Number(b) || 0), 0);
     };
 
     return {
@@ -110,6 +148,9 @@ export function useFirebase() {
         events,
         memo,
         loading,
+        authLoading,
+        loginWithGoogle,
+        logout,
         saveStudyRecord,
         saveEvent,
         saveMemo,

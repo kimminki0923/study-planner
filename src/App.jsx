@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Home, Calendar, Edit3, BarChart2, FileText, Loader } from 'lucide-react';
+import { Home, Calendar, Edit3, BarChart2, FileText, Loader, LogOut } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/CalendarView';
 import StudyInput from './components/StudyInput';
 import Statistics from './components/Statistics';
 import MemoSection from './components/MemoSection';
+import LoginScreen from './components/LoginScreen';
 import { initialStudyData } from './data/initialData';
 import { useFirebase } from './hooks/useFirebase';
 
@@ -16,12 +17,29 @@ function App() {
     events,
     memo,
     loading,
+    authLoading,
+    loginWithGoogle,
+    logout,
     saveStudyRecord,
     saveEvent,
     saveMemo,
     getDataForDate,
     getTodayTotal
   } = useFirebase();
+
+  // Show loading while checking auth state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader className="animate-spin text-accent-primary" size={32} />
+      </div>
+    );
+  }
+
+  // Show login screen if not logged in
+  if (!user) {
+    return <LoginScreen onLogin={loginWithGoogle} />;
+  }
 
   const renderView = () => {
     if (loading) {
@@ -135,11 +153,18 @@ function App() {
               {currentView === 'memo' && '자유 메모'}
             </h1>
           </div>
-          <div className="text-right text-xs text-text-muted">
-            <div>{new Date().toLocaleDateString('ko-KR')}</div>
-            <div className={user ? 'text-accent-tertiary' : 'text-text-muted'}>
-              {user ? '● 연결됨' : '○ 오프라인'}
+          <div className="flex items-center gap-3">
+            <div className="text-right text-xs">
+              <div className="text-text-muted">{user.displayName || user.email}</div>
+              <div className="text-accent-tertiary">● 연결됨</div>
             </div>
+            <button
+              onClick={logout}
+              className="btn btn-ghost p-2"
+              title="로그아웃"
+            >
+              <LogOut size={18} />
+            </button>
           </div>
         </header>
 
