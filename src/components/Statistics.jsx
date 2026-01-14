@@ -24,9 +24,10 @@ export default function Statistics({ subjects, sessions }) {
 
     sessions.forEach(session => {
         if (session.data) {
-            Object.entries(session.data).forEach(([subjectId, minutes]) => {
+            Object.entries(session.data).forEach(([subjectId, value]) => {
                 if (subjectTotals[subjectId] !== undefined) {
-                    subjectTotals[subjectId] += minutes;
+                    // Ensure value is treated as a number (minutes)
+                    subjectTotals[subjectId] += Number(value) || 0;
                 }
             });
         }
