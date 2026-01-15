@@ -48,7 +48,7 @@ export const analyzeStudyData = async (sessions, subjects, userGoals, apiKey) =>
     `;
 
         const response = await ai.models.generateContent({
-            model: "gemini-1.5-flash", // Reverted to stable model due to quota limits on exp
+            model: "gemini-1.5-flash-001", // Using specific version to avoid alias lookup issues
             contents: [
                 {
                     role: "user",
