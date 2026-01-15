@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 // Version: 2.0.1 - Google Login with user-specific data
-import { Home, Calendar, Edit3, BarChart2, FileText, Loader, LogOut } from 'lucide-react';
+import { Home, Calendar, Edit3, BarChart2, FileText, Loader, LogOut, Bot } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/CalendarView';
 import StudyInput from './components/StudyInput';
@@ -8,6 +8,7 @@ import Statistics from './components/Statistics';
 import MemoSection from './components/MemoSection';
 import LoginScreen from './components/LoginScreen';
 import { initialStudyData } from './data/initialData';
+import AICoach from './components/AICoach';
 import { useFirebase } from './hooks/useFirebase';
 
 function App() {
@@ -115,6 +116,14 @@ function App() {
             onSave={saveMemo}
           />
         );
+      case 'ai-coach':
+        return (
+          <AICoach
+            sessions={sessions}
+            subjects={initialStudyData.subjects}
+            user={initialStudyData.user}
+          />
+        );
       default:
         return null;
     }
@@ -160,6 +169,13 @@ function App() {
             <FileText size={20} />
             <span>메모</span>
           </button>
+          <button
+            onClick={() => setCurrentView('ai-coach')}
+            className={`nav-item ${currentView === 'ai-coach' ? 'active' : ''}`}
+          >
+            <Bot size={20} />
+            <span>AI 코치</span>
+          </button>
         </div>
       </nav>
 
@@ -174,6 +190,7 @@ function App() {
               {currentView === 'input' && '공부 기록'}
               {currentView === 'stats' && '통계'}
               {currentView === 'memo' && '자유 메모'}
+              {currentView === 'ai-coach' && 'AI 학습 코치'}
             </h1>
           </div>
           <div className="flex items-center gap-3">
