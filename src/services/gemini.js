@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const analyzeStudyData = async (sessions, subjects, userGoals, apiKey) => {
     if (!apiKey) {
@@ -6,7 +6,8 @@ export const analyzeStudyData = async (sessions, subjects, userGoals, apiKey) =>
     }
 
     try {
-        const ai = new GoogleGenAI({ apiKey: apiKey });
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         // Prepare data summary for the prompt
         const today = new Date();
@@ -47,25 +48,9 @@ export const analyzeStudyData = async (sessions, subjects, userGoals, apiKey) =>
       Please respond in Korean, using Markdown for formatting.
     `;
 
-        const response = await ai.models.generateContent({
-            model: "gemini-1.5-flash-001", // Using specific version to avoid alias lookup issues
-            contents: [
-                {
-                    role: "user",
-                    parts: [{ text: prompt }]
-                }
-            ]
-        });
-
-        // Handle different response structures from the new SDK
-        if (response && response.text) {
-            return response.text();
-        } else if (response && response.candidates && response.candidates[0] && response.candidates[0].content && response.candidates[0].content.parts && response.candidates[0].content.parts[0].text) {
-            return response.candidates[0].content.parts[0].text;
-        } else {
-            throw new Error("Invalid response format from Gemini API");
-        }
-
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text();
     } catch (error) {
         console.error("Error calling Gemini API:", error);
         throw error;
